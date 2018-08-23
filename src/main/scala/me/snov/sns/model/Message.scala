@@ -1,7 +1,8 @@
 package me.snov.sns.model
 
-import spray.json._
 import java.util.UUID
+
+import spray.json.{JsString, _}
 
 case class Message(bodies: Map[String, String], uuid: UUID = UUID.randomUUID, messageAttributes: Map[String, MessageAttribute] = Map.empty) {
 }
@@ -12,11 +13,17 @@ object Message extends DefaultJsonProtocol {
     def write(msg: Message) = JsObject(
       "MessageId" -> JsString(msg.uuid.toString),
       "Message" -> JsString(msg.bodies.getOrElse("default", "")),
-      "Type" -> JsString("Notification")
+      "Type" -> JsString("Notification"),
+      "MessageAttributes" -> JsObject(
+        msg.messageAttributes.map(m => m._1 -> JsObject(
+          "Type" -> JsString("String"),
+          "Value" -> JsString(m._2.stringValue))
+        )
+      )
     )
 
     def read(value: JsValue) = {
-      value.asJsObject.getFields("MessageId", "Message", "Type") match {
+      value.asJsObject.getFields("MessageId", "Message", "Type", "MessageAttributes") match {
         case Seq(JsString(uuid), JsString(body), _) => new Message(Map("default" -> body), UUID.fromString(uuid))
         case _ => throw new DeserializationException("Message expected")
       }
